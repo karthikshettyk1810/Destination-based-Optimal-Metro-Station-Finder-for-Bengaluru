@@ -61,33 +61,4 @@ Respond with either the single word CORRECT or the single corrected location nam
         
     except Exception as e:
         print(f"Error in spell checking: {str(e)}")
-        return None
-
-def is_valid_location(location: str) -> bool:
-    """
-    Use Gemini to verify if the location exists in Bangalore.
-    Returns True if the location is valid, False otherwise.
-    """
-    try:
-        # Create a model instance
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        
-        # Create a prompt for location validation
-        prompt = f"""
-        You are a location validator for Bangalore, India.
-        Given the location name: "{location}"
-        
-        Determine if this is a valid location in Bangalore.
-        Respond with "VALID" if it's a valid location in Bangalore, or "INVALID" if it's not.
-        Only respond with "VALID" or "INVALID", nothing else.
-        """
-        
-        # Generate response
-        response = model.generate_content(prompt)
-        result = response.text.strip()
-        
-        return result == "VALID"
-        
-    except Exception as e:
-        print(f"Error in location validation: {str(e)}")
-        return True  # Return True on error to not block the search 
+        return None 

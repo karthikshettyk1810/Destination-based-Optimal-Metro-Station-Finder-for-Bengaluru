@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
                 } else {
-                    header.innerHTML = `<i class="fas fa-check-circle text-success me-2"></i>Closest metro stations near "${mainLocation}"`;
+                    header.innerHTML = `<i class="fas fa-check-circle text-success me-2"></i>Closest metro station near "${mainLocation}"`;
                 }
                 contentDiv.appendChild(header);
             } else if (line.startsWith('❌')) {

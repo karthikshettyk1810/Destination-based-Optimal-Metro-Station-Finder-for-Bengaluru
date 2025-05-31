@@ -70,7 +70,7 @@ def is_valid_location(location: str) -> bool:
     """
     try:
         # Create a model instance
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         
         # Create a prompt for location validation
         prompt = f"""

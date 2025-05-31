@@ -297,20 +297,38 @@ def get_route():
         from_lat, from_lng = float(from_coords[0]), float(from_coords[1])
         to_lat, to_lng = float(to_coords[0]), float(to_coords[1])
         
-        # Call OSRM to get the route with geometry
-        url = f"{OSRM_URL}/route/v1/foot/{from_lng},{from_lat};{to_lng},{to_lat}?overview=full&geometries=geojson"
-        response = requests.get(url, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("code") == "Ok" and data.get("routes"):
-                # Extract the route geometry
-                route_geometry = data["routes"][0]["geometry"]["coordinates"]
-                # Convert from [lng, lat] to [lat, lng] for Leaflet
-                route_points = [[point[1], point[0]] for point in route_geometry]
-                return jsonify({"route": route_points})
-        
-        return jsonify({"error": "Could not retrieve route"}), 400
+        # Add timeout and error handling for long routes
+        try:
+            # Call OSRM to get the route with geometry
+            url = f"{OSRM_URL}/route/v1/foot/{from_lng},{from_lat};{to_lng},{to_lat}?overview=full&geometries=geojson"
+            response = requests.get(url, timeout=30)  # 30 second timeout
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("code") == "Ok" and data.get("routes"):
+                    # Extract the route geometry
+                    route_geometry = data["routes"][0]["geometry"]["coordinates"]
+                    # Convert from [lng, lat] to [lat, lng] for Leaflet
+                    route_points = [[point[1], point[0]] for point in route_geometry]
+                    
+                    # Check if route is too long (more than 10km)
+                    if data["routes"][0]["distance"] > 10000:  # 10km in meters
+                        return jsonify({
+                            "error": "Route is too long for walking. Please consider using public transport.",
+                            "distance": f"{data['routes'][0]['distance']/1000:.1f}km"
+                        }), 400
+                    
+                    return jsonify({"route": route_points})
+            
+            return jsonify({"error": "Could not retrieve route"}), 400
+            
+        except requests.exceptions.Timeout:
+            logger.error("Route calculation timed out")
+            return jsonify({"error": "Route calculation took too long. Please try a shorter route."}), 408
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error calculating route: {str(e)}")
+            return jsonify({"error": "Error calculating route"}), 500
+            
     except Exception as e:
         logger.error(f"Error getting route: {str(e)}")
         return jsonify({"error": str(e)}), 500

@@ -1,4 +1,4 @@
-# NearDest - Nearest Metro Station Finder
+# Destination-based Optimal Metro Station Finder for Bengaluru
 
 This project helps users find the nearest metro station to their desired destination using OSRM, Haversine Distance Formula and Manual Look Up Dictionary from Python and Metro Co-ordinates.
 

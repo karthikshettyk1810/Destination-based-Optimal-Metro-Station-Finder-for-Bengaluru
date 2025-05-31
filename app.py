@@ -14,7 +14,7 @@ import redis
 from redis.exceptions import ConnectionError, TimeoutError
 import json
 from datetime import timedelta, datetime
-from gemini_utils import get_spell_correction, is_valid_location
+from gemini_utils import get_spell_correction
 from flask.views import View
 from functools import wraps
 import aiohttp
@@ -155,12 +155,6 @@ async def find_station():
                     'original': location,
                     'corrected': corrected_location
                 }
-            })
-
-        # Validate if the location exists in Bangalore
-        if not is_valid_location(location):
-            return jsonify({
-                'error': f'"{location}" does not appear to be a valid location in Bangalore. Please check the spelling and try again.'
             })
 
         results = {}

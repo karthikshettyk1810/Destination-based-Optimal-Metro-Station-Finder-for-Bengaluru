@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Destination-based Optimal Metro Station Finder for Bengaluru</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .container {
+            max-width: 1400px;
+            padding: 20px;
+        }
+
+        .results-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .result-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .summary-section {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-title {
+            font-size: 1.5rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .summary-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .summary-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .summary-item i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #4A90E2;
+        }
+
+        .summary-item h4 {
+            font-size: 1.2rem;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .summary-item p {
+            color: #7f8c8d;
+            margin: 0;
+        }
+
+        .search-container {
+            max-width: 800px;
+            margin: 0 auto 30px;
+        }
+
+        /* Map Modal Styles */
+        .map-modal .modal-dialog {
+            max-width: 90%;
+            height: 90vh;
+            margin: 5vh auto;
+        }
+
+        .map-modal .modal-content {
+            height: 100%;
+            border-radius: 15px;
+        }
+
+        .map-modal .modal-body {
+            padding: 0;
+            height: calc(100% - 60px);
+        }
+
+        .map-modal iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 0 0 15px 15px;
+        }
+
+        .view-map-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            padding: 15px 30px;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+            display: none;
+        }
+
+        .view-map-btn:hover {
+            transform: translateY(-3px);
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                max-width: 100%;
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .results-container {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .result-card {
+                padding: 20px;
+            }
+
+            .map-modal .modal-dialog {
+                max-width: 100%;
+                height: 100vh;
+                margin: 0;
+            }
+
+            .view-map-btn {
+                bottom: 20px;
+                right: 20px;
+                padding: 12px 24px;
+            }
+        }
+
+        /* Remove map-related styles */
+        .map-button, .map-legend, .legend-item, .legend-color,
+        .metro-color, .bus-color, .taxi-color, .fuel-color {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12">
+                <div class="card main-card">
+                    <div class="card-body">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-subway fa-3x mb-3"></i>
+                            <h1>Destination-based Optimal Metro Station Finder for Bengaluru</h1>
+                            <p class="text-muted">Find the Nearest Metro Station to Your Destination to Make Your Journey Easier</p>
+                        </div>
+                        
+                        <div class="search-container">
+                            <div class="input-group mb-3">
+                                <span class="input-group-text bg-transparent border-end-0">
+                                    <i class="fas fa-map-marker-alt text-primary"></i>
+                                </span>
+                                <input type="text" id="location" class="form-control border-start-0" 
+                                       placeholder="Enter a location in Bangalore..."
+                                       aria-label="Location">
+                                <button class="btn btn-primary" type="button" id="searchBtn">
+                                    <i class="fas fa-search"></i> Find Stations
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="loading" class="text-center d-none">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-3 text-primary">Finding nearest metro stations...</p>
+                        </div>
+                        
+                        <div id="error" class="alert alert-danger d-none" role="alert">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <span></span>
+                        </div>
+
+                        <div class="results-container">
+                            <div id="currentLocation" class="result-card" style="display: none;">
+                                <h3 class="text-primary">Your Current Location</h3>
+                                <div class="result-content"></div>
+                            </div>
+                            
+                            <div id="searchedLocation" class="result-card" style="display: none;">
+                                <h3 class="text-primary">Searched Location</h3>
+                                <div class="result-content"></div>
+                            </div>
+                        </div>
+
+                        <div class="summary-section">
+                            <h3 class="summary-title">Journey Summary</h3>
+                            <div class="summary-content">
+                                <div class="summary-item">
+                                    <i class="fas fa-subway"></i>
+                                    <h4>Destination Metro</h4>
+                                    <p id="nearestMetro">-</p>
+                                </div>
+                                <div class="summary-item">
+                                    <i class="fas fa-walking"></i>
+                                    <h4>Walking Distance</h4>
+                                    <p id="walkingDistance">-</p>
+                                </div>
+                                <div class="summary-item">
+                                    <i class="fas fa-clock"></i>
+                                    <h4>Walking Time</h4>
+                                    <p id="walkingTime">-</p>
+                                </div>
+                                <div class="summary-item">
+                                    <i class="fas fa-train"></i>
+                                    <h4>Metro Line</h4>
+                                    <p id="metroLine">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map View Button -->
+    <button class="btn btn-primary view-map-btn animate__animated animate__fadeIn" id="viewMapBtn" style="display: none;">
+        <i class="fas fa-map-marked-alt me-2"></i> View Map
+    </button>
+
+    <!-- Map Modal -->
+    <div class="modal fade map-modal" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="mapModalLabel">Metro Station Map</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <iframe id="mapFrame" src="" frameborder="0"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Make metro stations data available to JavaScript
+        const metroStations = JSON.parse('{{ metro_stations|tojson|safe }}');
+
+        // Initialize map modal
+        const mapModal = new bootstrap.Modal(document.getElementById('mapModal'));
+        const mapFrame = document.getElementById('mapFrame');
+        const viewMapBtn = document.getElementById('viewMapBtn');
+
+        // Handle map button click
+        viewMapBtn.addEventListener('click', () => {
+            mapFrame.src = '/static/metro_map.html';
+            mapModal.show();
+        });
+    </script>
+</body>
+</html> 

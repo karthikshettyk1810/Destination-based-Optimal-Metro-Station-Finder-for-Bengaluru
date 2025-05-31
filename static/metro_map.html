@@ -1,0 +1,238 @@
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Nearest Metro Stations & POIs</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+        <style>
+            body { margin: 0; padding: 0; }
+            #map {
+                width: 100%;
+                height: 600px;
+                position: relative;
+                transform: translateZ(0);
+                will-change: transform;
+            }
+            .leaflet-popup-content {
+                padding: 15px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+            .station-popup {
+                font-family: Arial, sans-serif;
+            }
+            .station-name {
+                font-weight: bold;
+                font-size: 1.1em;
+                margin-bottom: 8px;
+                color: #333;
+            }
+            .station-info {
+                color: #666;
+                font-size: 0.9em;
+                line-height: 1.4;
+            }
+            .loading {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                z-index: 1000;
+                background: rgba(255, 255, 255, 0.9);
+                padding: 20px;
+                border-radius: 5px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+            .leaflet-control-zoom {
+                border-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+            .leaflet-control-zoom a {
+                width: 30px;
+                height: 30px;
+            }
+            .legend {
+                position: absolute;
+                bottom: 20px;
+                right: 20px;
+                background: white;
+                padding: 10px;
+                border-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                z-index: 1000;
+            }
+            .legend-item {
+                margin: 5px 0;
+                display: flex;
+                align-items: center;
+            }
+            .legend-color {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                margin-right: 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+        <div id="loading" class="loading" style="display: none;">Loading...</div>
+        
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+        <script>
+            // Initialize map
+            const map = L.map('map', {
+                center: [12.974135, 77.6174176],
+                zoom: 13,
+                zoomControl: false,
+                attributionControl: true
+            });
+            
+            // Add tile layer
+            L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
+                maxZoom: 18,
+                minZoom: 10
+            }).addTo(map);
+            
+            // Add zoom control
+            L.control.zoom({
+                position: 'topright'
+            }).addTo(map);
+            
+        // Initialize marker layers
+        let userMarker = null;
+        let searchedMarker = null;
+        let markers = L.markerClusterGroup({
+                maxClusterRadius: 50,
+                disableClusteringAtZoom: 17,
+                chunkedLoading: true
+            });
+        map.addLayer(markers);
+            
+            // Custom icons for different POI types
+            const icons = {
+                metro: L.divIcon({
+                    className: 'metro-icon',
+                    html: '<div style="background-color: #e41a1c; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>'
+                }),
+            user: L.divIcon({
+                className: 'user-location',
+                html: '<div style="background-color: #3388ff; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>'
+                }),
+            searched: L.divIcon({
+                className: 'searched-location',
+                html: '<div style="background-color: #2ecc71; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>'
+            })
+        };
+
+        // Function to format duration
+        function formatDuration(seconds) {
+            const minutes = Math.round(seconds / 60);
+            return `${minutes} min`;
+        }
+
+        // Function to update map with new data
+        function updateMap(data) {
+            console.log('Received data in map:', data);
+
+            // Clear existing markers
+            markers.clearLayers();
+            if (userMarker) {
+                map.removeLayer(userMarker);
+            }
+            if (searchedMarker) {
+                map.removeLayer(searchedMarker);
+            }
+
+            // Add user location marker
+            if (data.userLocation) {
+                console.log('Adding user location:', data.userLocation);
+                const [lat, lng] = data.userLocation;
+                userMarker = L.marker([lat, lng], {
+                    icon: icons.user
+                }).addTo(map);
+                
+                // Center map on user location
+                map.setView([lat, lng], 14);
+            }
+
+            // Add searched location marker
+            if (data.searchedLocation) {
+                console.log('Adding searched location:', data.searchedLocation);
+                const [lat, lng] = data.searchedLocation;
+                searchedMarker = L.marker([lat, lng], {
+                    icon: icons.searched
+                }).addTo(map);
+                
+                // If no user location, center on searched location
+                if (!data.userLocation) {
+                    map.setView([lat, lng], 14);
+                }
+            }
+
+            // Add station markers
+            if (data.stations && data.stations.features) {
+                console.log('Adding stations:', data.stations.features);
+                data.stations.features.forEach(feature => {
+                const marker = L.marker([
+                    feature.geometry.coordinates[1],
+                    feature.geometry.coordinates[0]
+                ], {
+                        icon: icons.metro
+                });
+                
+                    const popupContent = `
+                    <div class="station-popup">
+                        <div class="station-name">${feature.properties.name}</div>
+                        <div class="station-info">
+                            Line: ${feature.properties.line}<br>
+                            Distance: ${feature.properties.distance}m<br>
+                            Walking time: ${formatDuration(feature.properties.duration)}
+                        </div>
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent);
+                markers.addLayer(marker);
+            });
+            }
+            
+            // Add legend
+            const legend = L.control({ position: 'bottomright' });
+            legend.onAdd = function(map) {
+                const div = L.DomUtil.create('div', 'legend');
+                div.innerHTML = `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #3388ff;"></div>
+                        Your Location
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #2ecc71;"></div>
+                        Searched Location
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #e41a1c;"></div>
+                        Metro Stations
+                    </div>
+                `;
+                return div;
+            };
+            legend.addTo(map);
+        }
+
+        // Listen for messages from parent window
+        window.addEventListener('message', function(event) {
+            console.log('Received message in map:', event.data);
+            if (event.data && event.data.type === 'updateMap') {
+                updateMap(event.data);
+            }
+        });
+        </script>
+    </body>
+    </html>
+    

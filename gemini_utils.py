@@ -61,4 +61,8 @@ Respond with either the single word CORRECT or the single corrected location nam
         
     except Exception as e:
         print(f"Error in spell checking: {str(e)}")
+<<<<<<< HEAD
         return None 
+=======
+        return None 
+>>>>>>> 808b316 (GMaps Integartion)

@@ -100,7 +100,7 @@
             
             // Initialize map
             const map = L.map('map', {
-                center: [12.896373, 77.496918],
+                center: [12.98188, 77.639363],
                 zoom: 13,
                 zoomControl: false,
                 attributionControl: true
@@ -119,7 +119,7 @@
             }).addTo(map);
             
             // Add user location marker
-            const userMarker = L.marker([12.896373, 77.496918], {
+            const userMarker = L.marker([12.98188, 77.639363], {
                 icon: L.divIcon({
                     className: 'user-location',
                     html: '<div style="background-color: #3388ff; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>'
@@ -127,7 +127,7 @@
             }).addTo(map);
             
             // Add station markers
-            const stations = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "Kengeri Bus Terminal", "line": "Purple Line", "distance": 4521, "duration": 3253, "type": "metro"}, "geometry": {"type": "Point", "coordinates": [77.4875516, 12.9145367]}}]};
+            const stations = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "Indiranagar", "line": "Purple Line", "distance": 438, "duration": 315, "type": "metro"}, "geometry": {"type": "Point", "coordinates": [77.638889, 12.978611]}}]};
             const markers = L.markerClusterGroup({
                 maxClusterRadius: 50,
                 disableClusteringAtZoom: 17,

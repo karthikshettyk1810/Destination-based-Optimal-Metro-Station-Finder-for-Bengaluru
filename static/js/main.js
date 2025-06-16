@@ -255,9 +255,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Clear existing markers
             clearMarkers();
 
+            let processedSearchResults = null;
+            let processedCurrentResults = null;
+
             // Process and display results for searched location
             if (searchData.status === 'OK' && searchData.results && searchData.results.length > 0) {
-                const processedSearchResults = {
+                processedSearchResults = {
                     searched_location: {
                         location: {
                             lat: geocodeResult.lat(),
@@ -294,7 +297,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Process and display results for current location
             if (currentData.status === 'OK' && currentData.results && currentData.results.length > 0) {
-                const processedCurrentResults = {
+                processedCurrentResults = {
                     current_location: {
                         location: currentLocation,
                         results: await Promise.all(currentData.results.map(async station => {
@@ -324,6 +327,108 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
                 displayResults(processedCurrentResults.current_location, 'currentLocation');
                 addLocationMarker(processedCurrentResults.current_location.location, 'Current Location', currentMap);
+
+                // Calculate and log distance between the two nearest metro stations
+                console.log('Calculating distance between metro stations...');
+                if (processedSearchResults && processedCurrentResults && 
+                    processedSearchResults.searched_location.results.length > 0 && 
+                    processedCurrentResults.current_location.results.length > 0) {
+                    
+                    const destinationMetro = processedSearchResults.searched_location.results[0];
+                    const currentMetro = processedCurrentResults.current_location.results[0];
+                    
+                    console.log('Destination Metro:', destinationMetro.station);
+                    console.log('Current Metro:', currentMetro.station);
+                    
+                    try {
+                        // Calculate fare using metro travel distance
+                        const fareInfo = await calculateFare(currentMetro.station, destinationMetro.station);
+                        console.log('Calculated Fare:', fareInfo);
+
+                        // Create fare card
+                        const fareCard = document.createElement('div');
+                        fareCard.className = 'fare-card animate__animated animate__fadeInUp';
+                        fareCard.innerHTML = `
+                            <div class="card">
+                                <div class="card-header bg-primary text-white">
+                                    <h4 class="text-center mb-0">
+                                        <i class="fas fa-ticket-alt me-2"></i>Metro Fare Details
+                                    </h4>
+                                </div>
+                                <div class="card-body">
+                                    <div class="fare-box">
+                                        <div class="fare-content">
+                                            <div class="fare-value">
+                                                <i class="fas fa-rupee-sign"></i>
+                                                <span>${fareInfo.fare}</span>
+                                            </div>
+                                            <div class="fare-route-info">
+                                                <div class="station from">
+                                                    <i class="fas fa-subway"></i>
+                                                    <span>${fareInfo.origin_station || currentMetro.station}</span>
+                                                </div>
+                                                <div class="route-connector">
+                                                    <div class="connector-line"></div>
+                                                </div>
+                                                <div class="station to">
+                                                    <i class="fas fa-subway"></i>
+                                                    <span>${fareInfo.destination_station || destinationMetro.station}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="estimated-time">
+                                            <i class="fas fa-clock"></i>
+                                            <span>${fareInfo.duration}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        // Add the fare card before the journey summary
+                        const mainCard = document.querySelector('.main-card');
+                        const summarySection = document.querySelector('.summary-section');
+                        if (mainCard && summarySection) {
+                            // Remove any existing fare card
+                            const existingFareCard = document.querySelector('.fare-card');
+                            if (existingFareCard) {
+                                existingFareCard.remove();
+                            }
+                            // Insert the fare card before the summary section
+                            summarySection.parentNode.insertBefore(fareCard, summarySection);
+                        }
+
+                        // Send distance information to backend for logging
+                        try {
+                            console.log('Sending distance to backend...');
+                            const response = await fetch('/log_metro_distance', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    destination_station: destinationMetro.station,
+                                    current_station: currentMetro.station,
+                                    distance: fareInfo.distance,
+                                    adjusted_distance: fareInfo.adjusted_distance,
+                                    duration: fareInfo.duration,
+                                    fare: fareInfo.fare
+                                })
+                            });
+                            
+                            if (!response.ok) {
+                                console.error('Failed to log distance to backend');
+                            } else {
+                                console.log('Distance and fare successfully logged to backend');
+                            }
+                        } catch (error) {
+                            console.error('Error sending distance to backend:', error);
+                        }
+                    } catch (error) {
+                        console.error('Error calculating fare:', error);
+                        showError('Failed to calculate fare. Please try again.');
+                    }
+                }
             }
 
             // Show map
@@ -862,6 +967,274 @@ document.addEventListener('DOMContentLoaded', function() {
         .info-window small {
             color: #666;
         }
+
+        .fare-card {
+            margin: 20px 0;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .fare-card .card {
+            border: none;
+            border-radius: 20px;
+        }
+
+        .fare-card .card-header {
+            background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+            padding: 15px;
+            border-bottom: none;
+        }
+
+        .fare-card .card-header h4 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 0;
+            color: white;
+        }
+
+        .fare-card .card-body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+
+        .fare-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .fare-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .fare-value {
+            background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 2rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+
+        .fare-value:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        .fare-value i {
+            font-size: 1.5rem;
+        }
+
+        .fare-route-info {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .station {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .station:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .station i {
+            color: #FF6B6B;
+            font-size: 1.2rem;
+        }
+
+        .station span {
+            font-weight: 500;
+            color: #2D3436;
+        }
+
+        .route-connector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .connector-line {
+            width: 2px;
+            height: 30px;
+            background: linear-gradient(to bottom, #FF6B6B, #FF8E53);
+            margin: 5px 0;
+        }
+
+        .station.from {
+            border-left: 4px solid #FF6B6B;
+        }
+
+        .station.to {
+            border-left: 4px solid #FF8E53;
+        }
+
+        .estimated-time {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+
+        .estimated-time:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .estimated-time i {
+            color: #FF6B6B;
+            font-size: 1.1rem;
+        }
+
+        .estimated-time span {
+            font-weight: 500;
+            color: #2D3436;
+        }
+
+        @media (max-width: 992px) {
+            .fare-box {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .fare-content {
+                flex-direction: column;
+            }
+
+            .fare-value {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .estimated-time {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .fare-value {
+                font-size: 1.5rem;
+                padding: 12px 25px;
+            }
+
+            .station {
+                padding: 8px 15px;
+            }
+
+            .estimated-time {
+                padding: 8px 15px;
+            }
+        }
     `;
     document.head.appendChild(style);
+
+    // Function to calculate fare based on metro travel distance
+    async function calculateFare(originStation, destinationStation) {
+        try {
+            console.log('Calculating fare between stations:', {
+                origin: originStation,
+                destination: destinationStation
+            });
+
+            // Clean up station names
+            const cleanStationName = (name) => {
+                return name
+                    .replace(/\([^)]*\)/g, '') // Remove text in parentheses
+                    .replace(/\s+/g, ' ')      // Replace multiple spaces with single space
+                    .trim();                    // Remove leading/trailing spaces
+            };
+
+            const cleanOrigin = cleanStationName(originStation);
+            const cleanDestination = cleanStationName(destinationStation);
+
+            console.log('Cleaned station names:', {
+                origin: cleanOrigin,
+                destination: cleanDestination
+            });
+
+            const response = await fetch('/get_metro_distance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    origin_station: cleanOrigin,
+                    destination_station: cleanDestination
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Error response from server:', errorData);
+                throw new Error(errorData.error || 'Failed to get metro distance');
+            }
+
+            const data = await response.json();
+            console.log('Received distance data:', data);
+
+            const distanceInKm = data.distance / 1000; // Convert meters to kilometers
+            console.log('Distance in kilometers:', distanceInKm);
+            
+            // Fare calculation based on track distance
+            const fareRanges = [
+                { min: 0, max: 2, fare: 10 },
+                { min: 2, max: 4, fare: 20 },
+                { min: 4, max: 6, fare: 30 },
+                { min: 6, max: 8, fare: 40 },
+                { min: 8, max: 10, fare: 50 },
+                { min: 10, max: 15, fare: 60 },
+                { min: 15, max: 20, fare: 70 },
+                { min: 20, max: 25, fare: 80 },
+                { min: 25, max: 30, fare: 90 },
+                { min: 30, max: Infinity, fare: 90 }
+            ];
+
+            let fare = 90; // Default fare for distances over 30 km
+            for (const range of fareRanges) {
+                if (distanceInKm > range.min && distanceInKm <= range.max) {
+                    fare = range.fare;
+                    break;
+                }
+            }
+
+            return {
+                fare: fare,
+                distance: data.formatted_distance,
+                duration: data.formatted_duration,
+                origin_station: data.origin_station,
+                destination_station: data.destination_station
+            };
+        } catch (error) {
+            console.error('Error calculating fare:', error);
+            throw error;
+        }
+    }
 });
